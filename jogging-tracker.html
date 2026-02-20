@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0f1e">
+<title>RunTrack</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg: #090d1a;
+    --surface: #111827;
+    --border: #1e2d47;
+    --accent: #00e5ff;
+    --accent2: #ff4081;
+    --text: #e8eaf6;
+    --muted: #546e7a;
+    --success: #69f0ae;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    z-index: 1000;
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  .logo span { color: var(--accent2); }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+  .status-dot.active { background: var(--success); box-shadow: 0 0 8px var(--success); animation: pulse 1.5s infinite; }
+  .status-dot.waiting { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Map */
+  #map {
+    flex: 1;
+    z-index: 1;
+  }
+
+  /* Stats Bar */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .stat {
+    padding: 10px 8px;
+    text-align: center;
+    border-right: 1px solid var(--border);
+    position: relative;
+  }
+  .stat:last-child { border-right: none; }
+
+  .stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 4px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-start {
+    background: var(--accent);
+    color: #000;
+    font-size: 1.1rem;
+  }
+  .btn-start:hover { background: #29ebff; transform: translateY(-1px); }
+  .btn-start:active { transform: translateY(0); }
+  .btn-start.recording {
+    background: var(--accent2);
+    color: #fff;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    flex: 0 0 auto;
+    padding: 14px 16px;
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-secondary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* Leaflet custom markers */
+  .position-marker {
+    width: 16px; height: 16px;
+    background: var(--accent);
+    border: 3px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(0,229,255,0.3), 0 0 20px rgba(0,229,255,0.5);
+    animation: positionPulse 2s infinite;
+  }
+  @keyframes positionPulse {
+    0% { box-shadow: 0 0 0 3px rgba(0,229,255,0.3), 0 0 20px rgba(0,229,255,0.5); }
+    50% { box-shadow: 0 0 0 8px rgba(0,229,255,0.1), 0 0 30px rgba(0,229,255,0.3); }
+    100% { box-shadow: 0 0 0 3px rgba(0,229,255,0.3), 0 0 20px rgba(0,229,255,0.5); }
+  }
+
+  .start-marker { background: var(--success); border-color: #fff; animation: none; box-shadow: 0 0 10px var(--success); }
+  .end-marker { background: var(--accent2); border-color: #fff; animation: none; box-shadow: 0 0 10px var(--accent2); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    top: 70px; left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 9999;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Leaflet dark theme overrides */
+  .leaflet-tile-pane { filter: brightness(0.85) saturate(0.8); }
+  .leaflet-control-zoom a {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+  }
+  .leaflet-control-attribution { display: none; }
+
+  /* GPS accuracy circle override */
+  .accuracy-circle { stroke: var(--accent) !important; fill: rgba(0,229,255,0.05) !important; }
+
+  /* Speed indicator */
+  .stat-value.fast { color: var(--success); }
+  .stat-value.slow { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Run<span>Track</span></div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span style="font-size:0.75rem;letter-spacing:0.08em;color:var(--muted);" id="gps-label">GPS SUCHE...</span>
+    <div class="status-dot waiting" id="status-dot"></div>
+  </div>
+</header>
+
+<div id="map"></div>
+
+<div class="stats-bar">
+  <div class="stat">
+    <div class="stat-value" id="stat-dist">0.00</div>
+    <div class="stat-label">km</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" id="stat-time">00:00</div>
+    <div class="stat-label">Zeit</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" id="stat-pace">--:--</div>
+    <div class="stat-label">min/km</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" id="stat-speed">0.0</div>
+    <div class="stat-label">km/h</div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-start" id="btn-main" onclick="toggleTracking()">Start</button>
+  <button class="btn btn-secondary" id="btn-center" onclick="centerMap()" title="Karte zentrieren">⊙</button>
+  <button class="btn btn-secondary" id="btn-save" onclick="saveRoute()" disabled title="Route speichern">⬇</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // Map init
+  const map = L.map('map', { zoomControl: true, attributionControl: false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+  map.setView([48.7665, 9.1800], 15);
+
+  // State
+  let isTracking = false;
+  let positions = [];
+  let polyline = null;
+  let posMarker = null;
+  let startMarker = null;
+  let watchId = null;
+  let timerInterval = null;
+  let startTime = null;
+  let totalSeconds = 0;
+  let totalDistance = 0;
+  let lastPos = null;
+  let currentSpeed = 0;
+  let gpsReady = false;
+
+  // Custom marker icon factory
+  function makeIcon(cls) {
+    return L.divIcon({ className: '', html: `<div class="position-marker ${cls}"></div>`, iconSize: [16,16], iconAnchor: [8,8] });
+  }
+
+  // GPS Watch
+  function startGPS() {
+    if (!navigator.geolocation) { showToast('GPS nicht verfügbar'); return; }
+    watchId = navigator.geolocation.watchPosition(onPosition, onGPSError, {
+      enableHighAccuracy: true,
+      maximumAge: 2000,
+      timeout: 10000
+    });
+  }
+
+  function onPosition(pos) {
+    const { latitude: lat, longitude: lng, accuracy, speed } = pos.coords;
+    
+    if (!gpsReady) {
+      gpsReady = true;
+      document.getElementById('gps-label').textContent = 'GPS BEREIT';
+      document.getElementById('status-dot').className = 'status-dot';
+      showToast('GPS gefunden ✓');
+    }
+
+    // Update current speed
+    if (speed !== null) {
+      currentSpeed = speed * 3.6;
+      updateSpeedDisplay(currentSpeed);
+    }
+
+    // Move position marker
+    if (!posMarker) {
+      posMarker = L.marker([lat, lng], { icon: makeIcon('') }).addTo(map);
+      map.setView([lat, lng], 16);
+    } else {
+      posMarker.setLatLng([lat, lng]);
+    }
+
+    // If tracking, record the point
+    if (isTracking) {
+      const point = [lat, lng];
+      
+      if (lastPos) {
+        const dist = haversine(lastPos[0], lastPos[1], lat, lng);
+        if (dist > 0.003 || positions.length === 0) { // filter tiny jitter (< 3m)
+          totalDistance += dist;
+          positions.push(point);
+          polyline.setLatLngs(positions);
+          updateStatsDisplay();
+        }
+      } else {
+        positions.push(point);
+        polyline.setLatLngs(positions);
+      }
+      lastPos = point;
+    }
+  }
+
+  function onGPSError(err) {
+    document.getElementById('gps-label').textContent = 'GPS FEHLER';
+    showToast('GPS Fehler: ' + err.message);
+  }
+
+  // Haversine distance in km
+  function haversine(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2-lat1) * Math.PI/180;
+    const dLon = (lon2-lon1) * Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  // Toggle tracking
+  function toggleTracking() {
+    if (!gpsReady) { showToast('Warte auf GPS...'); return; }
+
+    if (!isTracking) {
+      // Start
+      isTracking = true;
+      positions = [];
+      totalDistance = 0;
+      lastPos = null;
+      startTime = Date.now();
+
+      polyline = L.polyline([], { color: '#00e5ff', weight: 4, opacity: 0.9, lineJoin: 'round', lineCap: 'round' }).addTo(map);
+
+      if (posMarker) {
+        const ll = posMarker.getLatLng();
+        startMarker = L.marker(ll, { icon: makeIcon('start-marker') }).addTo(map);
+      }
+
+      timerInterval = setInterval(() => {
+        totalSeconds = Math.floor((Date.now() - startTime) / 1000);
+        updateTimeDisplay(totalSeconds);
+        updatePaceDisplay();
+      }, 1000);
+
+      const btn = document.getElementById('btn-main');
+      btn.textContent = '⏹ Stop';
+      btn.classList.add('recording');
+      document.getElementById('status-dot').className = 'status-dot active';
+      document.getElementById('gps-label').textContent = 'AUFNAHME';
+      document.getElementById('btn-save').disabled = true;
+      showToast('Aufnahme gestartet');
+
+    } else {
+      // Stop
+      isTracking = false;
+      clearInterval(timerInterval);
+
+      if (posMarker && positions.length > 0) {
+        const ll = posMarker.getLatLng();
+        L.marker(ll, { icon: makeIcon('end-marker') }).addTo(map);
+      }
+
+      const btn = document.getElementById('btn-main');
+      btn.textContent = 'Neue Route';
+      btn.classList.remove('recording');
+      document.getElementById('status-dot').className = 'status-dot';
+      document.getElementById('gps-label').textContent = 'GPS BEREIT';
+      document.getElementById('btn-save').disabled = positions.length < 2;
+
+      if (positions.length > 1) map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
+      showToast(`Fertig! ${totalDistance.toFixed(2)} km in ${formatTime(totalSeconds)}`);
+    }
+  }
+
+  function centerMap() {
+    if (posMarker) map.setView(posMarker.getLatLng(), 16);
+    else showToast('Warte auf GPS...');
+  }
+
+  function updateStatsDisplay() {
+    document.getElementById('stat-dist').textContent = totalDistance.toFixed(2);
+    updatePaceDisplay();
+  }
+
+  function updateTimeDisplay(s) {
+    const m = Math.floor(s/60), sec = s%60;
+    const h = Math.floor(m/60), min = m%60;
+    document.getElementById('stat-time').textContent = h > 0
+      ? `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
+      : `${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  }
+
+  function updatePaceDisplay() {
+    if (totalDistance < 0.01 || totalSeconds < 5) {
+      document.getElementById('stat-pace').textContent = '--:--';
+      return;
+    }
+    const paceSeconds = totalSeconds / totalDistance;
+    const pm = Math.floor(paceSeconds/60), ps = Math.floor(paceSeconds%60);
+    document.getElementById('stat-pace').textContent = `${pm}:${String(ps).padStart(2,'0')}`;
+  }
+
+  function updateSpeedDisplay(kmh) {
+    const el = document.getElementById('stat-speed');
+    el.textContent = kmh.toFixed(1);
+    el.className = 'stat-value' + (kmh > 8 ? ' fast' : kmh < 3 ? ' slow' : '');
+  }
+
+  function formatTime(s) {
+    const m = Math.floor(s/60), sec = s%60;
+    return `${m}:${String(sec).padStart(2,'0')}`;
+  }
+
+  // Save GPX
+  function saveRoute() {
+    if (positions.length < 2) return;
+    const now = new Date();
+    const pts = positions.map(([lat,lon]) => `    <trkpt lat="${lat.toFixed(7)}" lon="${lon.toFixed(7)}"></trkpt>`).join('\n');
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="RunTrack">
+  <metadata><time>${now.toISOString()}</time></metadata>
+  <trk><name>Lauf ${now.toLocaleDateString('de-DE')}</name>
+    <trkseg>
+${pts}
+    </trkseg>
+  </trk>
+</gpx>`;
+    const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lauf_${now.toISOString().slice(0,10)}.gpx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('GPX gespeichert ✓');
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  // Init
+  startGPS();
+</script>
+</body>
+</html>
