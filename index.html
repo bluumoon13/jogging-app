@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a0f1e">
+<link rel="manifest" href="manifest.json">
 <title>RunTrack</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -34,7 +36,6 @@
     overflow: hidden;
   }
 
-  /* Header */
   header {
     display: flex;
     align-items: center;
@@ -53,27 +54,37 @@
     color: var(--accent);
     text-transform: uppercase;
   }
-
   .logo span { color: var(--accent2); }
+
+  .header-right { display: flex; align-items: center; gap: 8px; }
 
   .status-dot {
     width: 8px; height: 8px;
     border-radius: 50%;
     background: var(--muted);
     transition: background 0.3s;
+    flex-shrink: 0;
   }
   .status-dot.active { background: var(--success); box-shadow: 0 0 8px var(--success); animation: pulse 1.5s infinite; }
   .status-dot.waiting { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
 
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-  /* Map */
-  #map {
-    flex: 1;
-    z-index: 1;
+  /* Wake Lock indicator */
+  .wakelock-badge {
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    padding: 2px 6px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    text-transform: uppercase;
+    display: none;
   }
+  .wakelock-badge.active { border-color: var(--success); color: var(--success); display: block; }
 
-  /* Stats Bar */
+  #map { flex: 1; z-index: 1; }
+
   .stats-bar {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -86,7 +97,6 @@
     padding: 10px 8px;
     text-align: center;
     border-right: 1px solid var(--border);
-    position: relative;
   }
   .stat:last-child { border-right: none; }
 
@@ -97,7 +107,6 @@
     color: var(--accent);
     line-height: 1;
   }
-
   .stat-label {
     font-size: 0.65rem;
     letter-spacing: 0.12em;
@@ -106,7 +115,6 @@
     margin-top: 3px;
   }
 
-  /* Controls */
   .controls {
     display: flex;
     gap: 10px;
@@ -128,21 +136,11 @@
     text-transform: uppercase;
     cursor: pointer;
     transition: all 0.2s;
-    position: relative;
-    overflow: hidden;
   }
 
-  .btn-start {
-    background: var(--accent);
-    color: #000;
-    font-size: 1.1rem;
-  }
+  .btn-start { background: var(--accent); color: #000; font-size: 1.1rem; }
   .btn-start:hover { background: #29ebff; transform: translateY(-1px); }
-  .btn-start:active { transform: translateY(0); }
-  .btn-start.recording {
-    background: var(--accent2);
-    color: #fff;
-  }
+  .btn-start.recording { background: var(--accent2); color: #fff; }
 
   .btn-secondary {
     background: transparent;
@@ -154,7 +152,6 @@
   .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
   .btn-secondary:disabled { opacity: 0.3; cursor: not-allowed; }
 
-  /* Leaflet custom markers */
   .position-marker {
     width: 16px; height: 16px;
     background: var(--accent);
@@ -164,15 +161,13 @@
     animation: positionPulse 2s infinite;
   }
   @keyframes positionPulse {
-    0% { box-shadow: 0 0 0 3px rgba(0,229,255,0.3), 0 0 20px rgba(0,229,255,0.5); }
+    0%  { box-shadow: 0 0 0 3px rgba(0,229,255,0.3), 0 0 20px rgba(0,229,255,0.5); }
     50% { box-shadow: 0 0 0 8px rgba(0,229,255,0.1), 0 0 30px rgba(0,229,255,0.3); }
-    100% { box-shadow: 0 0 0 3px rgba(0,229,255,0.3), 0 0 20px rgba(0,229,255,0.5); }
+    100%{ box-shadow: 0 0 0 3px rgba(0,229,255,0.3), 0 0 20px rgba(0,229,255,0.5); }
   }
+  .start-marker { background: var(--success); animation: none; box-shadow: 0 0 10px var(--success); }
+  .end-marker   { background: var(--accent2); animation: none; box-shadow: 0 0 10px var(--accent2); }
 
-  .start-marker { background: var(--success); border-color: #fff; animation: none; box-shadow: 0 0 10px var(--success); }
-  .end-marker { background: var(--accent2); border-color: #fff; animation: none; box-shadow: 0 0 10px var(--accent2); }
-
-  /* Toast */
   .toast {
     position: fixed;
     top: 70px; left: 50%;
@@ -188,10 +183,11 @@
     transition: all 0.3s;
     z-index: 9999;
     white-space: nowrap;
+    max-width: 90vw;
+    text-align: center;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  /* Leaflet dark theme overrides */
   .leaflet-tile-pane { filter: brightness(0.85) saturate(0.8); }
   .leaflet-control-zoom a {
     background: var(--surface) !important;
@@ -200,23 +196,49 @@
   }
   .leaflet-control-attribution { display: none; }
 
-  /* GPS accuracy circle override */
-  .accuracy-circle { stroke: var(--accent) !important; fill: rgba(0,229,255,0.05) !important; }
-
-  /* Speed indicator */
   .stat-value.fast { color: var(--success); }
   .stat-value.slow { color: var(--muted); }
+
+  /* Install banner */
+  #install-banner {
+    display: none;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+    flex-shrink: 0;
+  }
+  #install-banner button {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 3px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+    margin-left: 8px;
+  }
 </style>
 </head>
 <body>
 
 <header>
   <div class="logo">Run<span>Track</span></div>
-  <div style="display:flex;align-items:center;gap:8px;">
+  <div class="header-right">
+    <div class="wakelock-badge" id="wakelock-badge">BILDSCHIRM AN</div>
     <span style="font-size:0.75rem;letter-spacing:0.08em;color:var(--muted);" id="gps-label">GPS SUCHE...</span>
     <div class="status-dot waiting" id="status-dot"></div>
   </div>
 </header>
+
+<div id="install-banner">
+  Als App installieren für beste Hintergrund-Unterstützung
+  <button id="btn-install">Installieren</button>
+</div>
 
 <div id="map"></div>
 
@@ -241,206 +263,285 @@
 
 <div class="controls">
   <button class="btn btn-start" id="btn-main" onclick="toggleTracking()">Start</button>
-  <button class="btn btn-secondary" id="btn-center" onclick="centerMap()" title="Karte zentrieren">⊙</button>
+  <button class="btn btn-secondary" onclick="centerMap()" title="Karte zentrieren">⊙</button>
   <button class="btn btn-secondary" id="btn-save" onclick="saveRoute()" disabled title="Route speichern">⬇</button>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-  // Map init
-  const map = L.map('map', { zoomControl: true, attributionControl: false });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-  map.setView([48.7665, 9.1800], 15);
+// ── Map ──────────────────────────────────────────────────────────────────────
+const map = L.map('map', { zoomControl: true, attributionControl: false });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+map.setView([48.7665, 9.1800], 15);
 
-  // State
-  let isTracking = false;
-  let positions = [];
-  let polyline = null;
-  let posMarker = null;
-  let startMarker = null;
-  let watchId = null;
-  let timerInterval = null;
-  let startTime = null;
-  let totalSeconds = 0;
-  let totalDistance = 0;
-  let lastPos = null;
-  let currentSpeed = 0;
-  let gpsReady = false;
+// ── State ────────────────────────────────────────────────────────────────────
+let isTracking    = false;
+let positions     = [];
+let polyline      = null;
+let posMarker     = null;
+let startMarker   = null;
+let timerInterval = null;
+let startTime     = null;
+let totalSeconds  = 0;
+let totalDistance = 0;
+let lastPos       = null;
+let gpsReady      = false;
+let wakeLock      = null;
+let swReg         = null;
 
-  // Custom marker icon factory
-  function makeIcon(cls) {
-    return L.divIcon({ className: '', html: `<div class="position-marker ${cls}"></div>`, iconSize: [16,16], iconAnchor: [8,8] });
-  }
+// ── Service Worker ───────────────────────────────────────────────────────────
+async function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    swReg = await navigator.serviceWorker.register('sw.js');
+    console.log('SW registered');
 
-  // GPS Watch
-  function startGPS() {
-    if (!navigator.geolocation) { showToast('GPS nicht verfügbar'); return; }
-    watchId = navigator.geolocation.watchPosition(onPosition, onGPSError, {
-      enableHighAccuracy: true,
-      maximumAge: 2000,
-      timeout: 10000
+    // Listen for GPS updates relayed from SW (when page was in background)
+    navigator.serviceWorker.addEventListener('message', e => {
+      const { type, payload } = e.data || {};
+      if (type === 'GPS_UPDATE' && isTracking) {
+        handleGPSPoint(payload.lat, payload.lng, payload.speed);
+      }
+      if (type === 'BUFFER_RESPONSE') {
+        applyBuffer(e.data.payload);
+      }
     });
+  } catch(err) {
+    console.warn('SW registration failed', err);
+  }
+}
+
+function swPost(msg) {
+  if (navigator.serviceWorker?.controller) {
+    navigator.serviceWorker.controller.postMessage(msg);
+  }
+}
+
+function applyBuffer(pts) {
+  if (!pts || pts.length === 0) return;
+  pts.forEach(p => handleGPSPoint(p.lat, p.lng, null, true));
+  showToast(`${pts.length} Punkte aus Hintergrund geladen`);
+}
+
+// ── Wake Lock (hält Bildschirm an) ───────────────────────────────────────────
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    document.getElementById('wakelock-badge').classList.add('active');
+    wakeLock.addEventListener('release', () => {
+      document.getElementById('wakelock-badge').classList.remove('active');
+    });
+  } catch(e) {
+    console.warn('Wake Lock nicht verfügbar:', e.message);
+  }
+}
+
+async function releaseWakeLock() {
+  if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+  document.getElementById('wakelock-badge').classList.remove('active');
+}
+
+// Re-acquire wake lock when tab becomes visible again
+document.addEventListener('visibilitychange', async () => {
+  if (isTracking && document.visibilityState === 'visible') {
+    await acquireWakeLock();
+    // Request any points buffered by SW while page was hidden
+    swPost({ type: 'GET_BUFFER' });
+  }
+});
+
+// ── GPS ──────────────────────────────────────────────────────────────────────
+let watchId = null;
+
+function startGPS() {
+  if (!navigator.geolocation) { showToast('GPS nicht verfügbar'); return; }
+  watchId = navigator.geolocation.watchPosition(onPosition, onGPSError, {
+    enableHighAccuracy: true,
+    maximumAge: 2000,
+    timeout: 15000
+  });
+}
+
+function onPosition(pos) {
+  const { latitude: lat, longitude: lng, speed } = pos.coords;
+
+  if (!gpsReady) {
+    gpsReady = true;
+    document.getElementById('gps-label').textContent = 'GPS BEREIT';
+    document.getElementById('status-dot').className = 'status-dot';
+    showToast('GPS gefunden ✓');
   }
 
-  function onPosition(pos) {
-    const { latitude: lat, longitude: lng, accuracy, speed } = pos.coords;
-    
-    if (!gpsReady) {
-      gpsReady = true;
-      document.getElementById('gps-label').textContent = 'GPS BEREIT';
-      document.getElementById('status-dot').className = 'status-dot';
-      showToast('GPS gefunden ✓');
+  // Update speed display
+  if (speed !== null) updateSpeedDisplay(speed * 3.6);
+
+  // Move position marker
+  if (!posMarker) {
+    posMarker = L.marker([lat, lng], { icon: makeIcon('') }).addTo(map);
+    map.setView([lat, lng], 16);
+  } else {
+    posMarker.setLatLng([lat, lng]);
+  }
+
+  if (isTracking) {
+    // Forward point to SW for buffering
+    swPost({ type: 'GPS_POINT', payload: { lat, lng, speed, t: Date.now() } });
+    handleGPSPoint(lat, lng, speed);
+  }
+}
+
+function handleGPSPoint(lat, lng, speed, silent = false) {
+  const point = [lat, lng];
+
+  if (lastPos) {
+    const dist = haversine(lastPos[0], lastPos[1], lat, lng);
+    if (dist < 0.003) return; // filter jitter < 3m
+    totalDistance += dist;
+  }
+
+  positions.push(point);
+  if (polyline) polyline.setLatLngs(positions);
+  lastPos = point;
+
+  if (!silent) {
+    updateStatsDisplay();
+    if (speed !== null) updateSpeedDisplay(speed * 3.6);
+  }
+}
+
+function onGPSError(err) {
+  document.getElementById('gps-label').textContent = 'GPS FEHLER';
+  showToast('GPS Fehler: ' + err.message);
+}
+
+// ── Tracking ─────────────────────────────────────────────────────────────────
+async function toggleTracking() {
+  if (!gpsReady) { showToast('Warte auf GPS...'); return; }
+
+  if (!isTracking) {
+    isTracking = true;
+    positions = [];
+    totalDistance = 0;
+    totalSeconds = 0;
+    lastPos = null;
+    startTime = Date.now();
+
+    polyline = L.polyline([], {
+      color: '#00e5ff', weight: 4, opacity: 0.9,
+      lineJoin: 'round', lineCap: 'round'
+    }).addTo(map);
+
+    if (posMarker) {
+      startMarker = L.marker(posMarker.getLatLng(), { icon: makeIcon('start-marker') }).addTo(map);
     }
 
-    // Update current speed
-    if (speed !== null) {
-      currentSpeed = speed * 3.6;
-      updateSpeedDisplay(currentSpeed);
+    timerInterval = setInterval(() => {
+      totalSeconds = Math.floor((Date.now() - startTime) / 1000);
+      updateTimeDisplay(totalSeconds);
+      updatePaceDisplay();
+    }, 1000);
+
+    // Tell SW to start buffering
+    swPost({ type: 'START_TRACKING', payload: { existing: [] } });
+
+    // Acquire wake lock to keep screen on
+    await acquireWakeLock();
+
+    const btn = document.getElementById('btn-main');
+    btn.textContent = '⏹ Stop';
+    btn.classList.add('recording');
+    document.getElementById('status-dot').className = 'status-dot active';
+    document.getElementById('gps-label').textContent = 'AUFNAHME';
+    document.getElementById('btn-save').disabled = true;
+    showToast('Aufnahme gestartet 🏃');
+
+  } else {
+    isTracking = false;
+    clearInterval(timerInterval);
+
+    swPost({ type: 'STOP_TRACKING' });
+    await releaseWakeLock();
+
+    if (posMarker && positions.length > 0) {
+      L.marker(posMarker.getLatLng(), { icon: makeIcon('end-marker') }).addTo(map);
     }
 
-    // Move position marker
-    if (!posMarker) {
-      posMarker = L.marker([lat, lng], { icon: makeIcon('') }).addTo(map);
-      map.setView([lat, lng], 16);
-    } else {
-      posMarker.setLatLng([lat, lng]);
-    }
+    const btn = document.getElementById('btn-main');
+    btn.textContent = 'Neue Route';
+    btn.classList.remove('recording');
+    document.getElementById('status-dot').className = 'status-dot';
+    document.getElementById('gps-label').textContent = 'GPS BEREIT';
+    document.getElementById('btn-save').disabled = positions.length < 2;
 
-    // If tracking, record the point
-    if (isTracking) {
-      const point = [lat, lng];
-      
-      if (lastPos) {
-        const dist = haversine(lastPos[0], lastPos[1], lat, lng);
-        if (dist > 0.003 || positions.length === 0) { // filter tiny jitter (< 3m)
-          totalDistance += dist;
-          positions.push(point);
-          polyline.setLatLngs(positions);
-          updateStatsDisplay();
-        }
-      } else {
-        positions.push(point);
-        polyline.setLatLngs(positions);
-      }
-      lastPos = point;
-    }
+    if (positions.length > 1) map.fitBounds(polyline.getBounds(), { padding: [40,40] });
+    showToast(`Fertig! ${totalDistance.toFixed(2)} km · ${formatTime(totalSeconds)}`);
   }
+}
 
-  function onGPSError(err) {
-    document.getElementById('gps-label').textContent = 'GPS FEHLER';
-    showToast('GPS Fehler: ' + err.message);
+// ── Map helpers ───────────────────────────────────────────────────────────────
+function centerMap() {
+  if (posMarker) map.setView(posMarker.getLatLng(), 16);
+  else showToast('Warte auf GPS...');
+}
+
+function makeIcon(cls) {
+  return L.divIcon({
+    className: '',
+    html: `<div class="position-marker ${cls}"></div>`,
+    iconSize: [16,16], iconAnchor: [8,8]
+  });
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function updateStatsDisplay() {
+  document.getElementById('stat-dist').textContent = totalDistance.toFixed(2);
+  updatePaceDisplay();
+}
+
+function updateTimeDisplay(s) {
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  document.getElementById('stat-time').textContent = h > 0
+    ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
+    : `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function updatePaceDisplay() {
+  if (totalDistance < 0.01 || totalSeconds < 5) {
+    document.getElementById('stat-pace').textContent = '--:--'; return;
   }
+  const ps = totalSeconds / totalDistance;
+  document.getElementById('stat-pace').textContent =
+    `${Math.floor(ps/60)}:${String(Math.floor(ps%60)).padStart(2,'0')}`;
+}
 
-  // Haversine distance in km
-  function haversine(lat1, lon1, lat2, lon2) {
-    const R = 6371;
-    const dLat = (lat2-lat1) * Math.PI/180;
-    const dLon = (lon2-lon1) * Math.PI/180;
-    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  }
+function updateSpeedDisplay(kmh) {
+  const el = document.getElementById('stat-speed');
+  el.textContent = kmh.toFixed(1);
+  el.className = 'stat-value' + (kmh > 8 ? ' fast' : kmh < 3 ? ' slow' : '');
+}
 
-  // Toggle tracking
-  function toggleTracking() {
-    if (!gpsReady) { showToast('Warte auf GPS...'); return; }
+function formatTime(s) {
+  const m = Math.floor(s/60), sec = s%60;
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
 
-    if (!isTracking) {
-      // Start
-      isTracking = true;
-      positions = [];
-      totalDistance = 0;
-      lastPos = null;
-      startTime = Date.now();
+// ── Haversine ─────────────────────────────────────────────────────────────────
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371, toRad = x => x * Math.PI/180;
+  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
 
-      polyline = L.polyline([], { color: '#00e5ff', weight: 4, opacity: 0.9, lineJoin: 'round', lineCap: 'round' }).addTo(map);
-
-      if (posMarker) {
-        const ll = posMarker.getLatLng();
-        startMarker = L.marker(ll, { icon: makeIcon('start-marker') }).addTo(map);
-      }
-
-      timerInterval = setInterval(() => {
-        totalSeconds = Math.floor((Date.now() - startTime) / 1000);
-        updateTimeDisplay(totalSeconds);
-        updatePaceDisplay();
-      }, 1000);
-
-      const btn = document.getElementById('btn-main');
-      btn.textContent = '⏹ Stop';
-      btn.classList.add('recording');
-      document.getElementById('status-dot').className = 'status-dot active';
-      document.getElementById('gps-label').textContent = 'AUFNAHME';
-      document.getElementById('btn-save').disabled = true;
-      showToast('Aufnahme gestartet');
-
-    } else {
-      // Stop
-      isTracking = false;
-      clearInterval(timerInterval);
-
-      if (posMarker && positions.length > 0) {
-        const ll = posMarker.getLatLng();
-        L.marker(ll, { icon: makeIcon('end-marker') }).addTo(map);
-      }
-
-      const btn = document.getElementById('btn-main');
-      btn.textContent = 'Neue Route';
-      btn.classList.remove('recording');
-      document.getElementById('status-dot').className = 'status-dot';
-      document.getElementById('gps-label').textContent = 'GPS BEREIT';
-      document.getElementById('btn-save').disabled = positions.length < 2;
-
-      if (positions.length > 1) map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
-      showToast(`Fertig! ${totalDistance.toFixed(2)} km in ${formatTime(totalSeconds)}`);
-    }
-  }
-
-  function centerMap() {
-    if (posMarker) map.setView(posMarker.getLatLng(), 16);
-    else showToast('Warte auf GPS...');
-  }
-
-  function updateStatsDisplay() {
-    document.getElementById('stat-dist').textContent = totalDistance.toFixed(2);
-    updatePaceDisplay();
-  }
-
-  function updateTimeDisplay(s) {
-    const m = Math.floor(s/60), sec = s%60;
-    const h = Math.floor(m/60), min = m%60;
-    document.getElementById('stat-time').textContent = h > 0
-      ? `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
-      : `${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
-  }
-
-  function updatePaceDisplay() {
-    if (totalDistance < 0.01 || totalSeconds < 5) {
-      document.getElementById('stat-pace').textContent = '--:--';
-      return;
-    }
-    const paceSeconds = totalSeconds / totalDistance;
-    const pm = Math.floor(paceSeconds/60), ps = Math.floor(paceSeconds%60);
-    document.getElementById('stat-pace').textContent = `${pm}:${String(ps).padStart(2,'0')}`;
-  }
-
-  function updateSpeedDisplay(kmh) {
-    const el = document.getElementById('stat-speed');
-    el.textContent = kmh.toFixed(1);
-    el.className = 'stat-value' + (kmh > 8 ? ' fast' : kmh < 3 ? ' slow' : '');
-  }
-
-  function formatTime(s) {
-    const m = Math.floor(s/60), sec = s%60;
-    return `${m}:${String(sec).padStart(2,'0')}`;
-  }
-
-  // Save GPX
-  function saveRoute() {
-    if (positions.length < 2) return;
-    const now = new Date();
-    const pts = positions.map(([lat,lon]) => `    <trkpt lat="${lat.toFixed(7)}" lon="${lon.toFixed(7)}"></trkpt>`).join('\n');
-    const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+// ── GPX Export ────────────────────────────────────────────────────────────────
+function saveRoute() {
+  if (positions.length < 2) return;
+  const now = new Date();
+  const pts = positions.map(([lat,lon]) =>
+    `    <trkpt lat="${lat.toFixed(7)}" lon="${lon.toFixed(7)}"></trkpt>`).join('\n');
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="RunTrack">
   <metadata><time>${now.toISOString()}</time></metadata>
   <trk><name>Lauf ${now.toLocaleDateString('de-DE')}</name>
@@ -449,25 +550,45 @@ ${pts}
     </trkseg>
   </trk>
 </gpx>`;
-    const blob = new Blob([gpx], { type: 'application/gpx+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `lauf_${now.toISOString().slice(0,10)}.gpx`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('GPX gespeichert ✓');
-  }
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([gpx], { type: 'application/gpx+xml' })),
+    download: `lauf_${now.toISOString().slice(0,10)}.gpx`
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('GPX gespeichert ✓');
+}
 
-  function showToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3000);
-  }
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
 
-  // Init
-  startGPS();
+// ── PWA Install prompt ────────────────────────────────────────────────────────
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('install-banner').style.display = 'block';
+});
+document.getElementById('btn-install').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('install-banner').style.display = 'none';
+  if (outcome === 'accepted') showToast('App installiert ✓');
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-banner').style.display = 'none';
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+registerSW();
+startGPS();
 </script>
 </body>
 </html>
