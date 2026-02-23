@@ -294,7 +294,7 @@ let swReg         = null;
 async function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   try {
-    swReg = await navigator.serviceWorker.register('sw.js');
+    swReg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
     console.log('SW registered');
 
     // Listen for GPS updates relayed from SW (when page was in background)
